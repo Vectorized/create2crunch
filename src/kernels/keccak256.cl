@@ -196,32 +196,10 @@ static inline void keccakf(ulong *a)
   (!(d[16])) + (!(d[17])) + (!(d[18])) + (!(d[19])) \
 >= TOTAL_ZEROES)
 
-#if LEADING_ZEROES == 8
-#define hasLeading(d) (!(((uint*)d)[0]) && !(((uint*)d)[1]))
-#elif LEADING_ZEROES == 7
-#define hasLeading(d) (!(((uint*)d)[0]) && !(((uint*)d)[1] & 0x00ffffffu))
-#elif LEADING_ZEROES == 6
-#define hasLeading(d) (!(((uint*)d)[0]) && !(((uint*)d)[1] & 0x0000ffffu))
-#elif LEADING_ZEROES == 5
-#define hasLeading(d) (!(((uint*)d)[0]) && !(((uint*)d)[1] & 0x000000ffu))
-#elif LEADING_ZEROES == 4
-#define hasLeading(d) (!(((uint*)d)[0]))
-#elif LEADING_ZEROES == 3
-#define hasLeading(d) (!(((uint*)d)[0] & 0x00ffffffu))
-#elif LEADING_ZEROES == 2
-#define hasLeading(d) (!(((uint*)d)[0] & 0x0000ffffu))
-#elif LEADING_ZEROES == 1
-#define hasLeading(d) (!(((uint*)d)[0] & 0x000000ffu))
-#else
-static inline bool hasLeading(uchar const *d)
-{
-#pragma unroll
-  for (uint i = 0; i < LEADING_ZEROES; ++i) {
-    if (d[i] != 0) return false;
-  }
-  return true;
-}
-#endif
+#define hasLeading(d) (!(((uint*)d)[0]) && d[4] == 0x65u && d[5] == 0x51u)
+
+// Uncomment to test for smaller case.
+// #define hasLeading(d) (d[0] == 0x00u && d[1] == 0x00u && d[2] == 0x65u && d[3] == 0x51u)
 
 __kernel void hashMessage(
   __constant uchar const *d_message,
@@ -352,12 +330,7 @@ __kernel void hashMessage(
   keccakf(spongeBuffer);
 
   // determine if the address meets the constraints
-  if (
-    hasLeading(digest) 
-#if TOTAL_ZEROES <= 20
-    || hasTotal(digest)
-#endif
-  ) {
+  if (hasLeading(digest)) {
     // To be honest, if we are using OpenCL, 
     // we just need to write one solution for all practical purposes,
     // since the chance of multiple solutions appearing
