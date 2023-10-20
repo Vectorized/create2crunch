@@ -200,7 +200,7 @@ static inline void keccakf(ulong *a)
 (\
  (!(((uint*)d)[0]) && d[4] == 0x65u && d[5] == 0x51u) || \
  (!(((uint*)d)[0]) && d[4] == 0x00u && d[5] == 0x65u && d[6] == 0x51u) || \
- (d[0] == 0x00u && d[1] == 0x00u && d[2] == 0x00u && d[3] == 0x65u && d[4] == 0x51u)
+ (d[0] == 0x00u && d[1] == 0x00u && d[2] == 0x00u && d[3] == 0x65u && d[4] == 0x51u) \
 )
 
 __kernel void hashMessage(
