@@ -45,6 +45,7 @@ pub struct Config {
     pub gpu_device: u8,
     pub leading_zeroes_threshold: u8,
     pub total_zeroes_threshold: u8,
+    pub createx_replay_protection_flag: u8,
 }
 
 /// Validate the provided arguments and construct the Config struct.
@@ -74,6 +75,10 @@ impl Config {
         let total_zeroes_threshold_string = match args.next() {
             Some(arg) => arg,
             None => String::from("5"),
+        };
+        let createx_replay_protection_flag_string = match args.next() {
+            Some(arg) => arg,
+            None => String::from("0"),
         };
 
         // convert main arguments from hex string to vector of bytes
@@ -108,12 +113,22 @@ impl Config {
         let Ok(total_zeroes_threshold) = total_zeroes_threshold_string.parse::<u8>() else {
             return Err("invalid total zeroes threshold value supplied");
         };
+        let Ok(createx_replay_protection_flag) =
+            createx_replay_protection_flag_string.parse::<u8>()
+        else {
+            return Err("invalid CreateX replay protection flag value supplied");
+        };
 
         if leading_zeroes_threshold > 20 {
             return Err("invalid value for leading zeroes threshold argument. (valid: 0..=20)");
         }
         if total_zeroes_threshold > 20 && total_zeroes_threshold != 255 {
             return Err("invalid value for total zeroes threshold argument. (valid: 0..=20 | 255)");
+        }
+        if createx_replay_protection_flag > 1 {
+            return Err(
+                "invalid value for CreateX replay protection flag argument. (valid: 0 | 1)",
+            );
         }
 
         Ok(Self {
@@ -123,6 +138,7 @@ impl Config {
             gpu_device,
             leading_zeroes_threshold,
             total_zeroes_threshold,
+            createx_replay_protection_flag,
         })
     }
 }
@@ -155,7 +171,8 @@ pub fn cpu(config: Config) -> Result<(), Box<dyn Error>> {
         header[0] = CONTROL_CHARACTER;
         header[1..21].copy_from_slice(&config.factory_address);
         header[21..41].copy_from_slice(&config.calling_address);
-        header[41..].copy_from_slice(&FixedBytes::<6>::random()[..]);
+        header[41] = config.createx_replay_protection_flag;
+        header[42..].copy_from_slice(&FixedBytes::<5>::random()[..]);
 
         // create new hash object
         let mut hash_header = Keccak::v256();
@@ -321,7 +338,9 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
     // begin searching for addresses
     loop {
         // construct the 4-byte message to hash, leaving last 8 of salt empty
-        let salt = FixedBytes::<4>::random();
+        let mut salt = FixedBytes::<4>::random();
+        // replace the starting byte of the salt with the CreateX replay protection flag
+        salt[0] = config.createx_replay_protection_flag;
 
         // build a corresponding buffer for passing the message to the kernel
         let message_buffer = Buffer::builder()
